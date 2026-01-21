@@ -355,7 +355,7 @@ codegen: types swagger manifests $(TOOL_MOCKERY) $(GENERATED_DOCS) ## Generate c
 	go generate ./...
 	$(TOOL_MOCKERY) --config .mockery.yaml
  	# The generated markdown contains links to nowhere for interfaces, so remove them
-	sed -i.bak 's/\[interface{}\](#interface)/`interface{}`/g' docs/executor_swagger.md && rm -f docs/executor_swagger.md.bak
+	sed -i.bak 's/\[any\](#any)/`any`/g' docs/executor_swagger.md && rm -f docs/executor_swagger.md.bak
 	make --directory sdks/java USE_NIX=$(USE_NIX) generate
 
 .PHONY: check-pwd
@@ -436,7 +436,7 @@ endif
 $(TOOL_SWAGGER): Makefile
 # update this in Nix when upgrading it here
 ifneq ($(USE_NIX), true)
-	go install github.com/go-swagger/go-swagger/cmd/swagger@v0.31.0
+	go install github.com/go-swagger/go-swagger/cmd/swagger@v0.33.1
 endif
 $(TOOL_GOIMPORTS): Makefile
 # update this in Nix when upgrading it here
@@ -863,7 +863,7 @@ endif
 .PHONY: docs-lint
 docs-lint: $(TOOL_MARKDOWNLINT) docs/metrics.md
 	# lint docs
-	$(TOOL_MARKDOWNLINT) docs --fix --ignore docs/fields.md --ignore docs/executor_swagger.md --ignore docs/cli --ignore docs/walk-through/the-structure-of-workflow-specs.md --ignore docs/tested-kubernetes-versions.md --ignore docs/new-features.md --ignore docs/go-sdk-guide.md
+	$(TOOL_MARKDOWNLINT) docs --fix --ignore docs/fields.md --ignore docs/executor_swagger.md --ignore docs/cli --ignore docs/walk-through/the-structure-of-workflow-specs.md --ignore docs/tested-kubernetes-versions.md --ignore docs/go-sdk-guide.md
 
 $(TOOL_MKDOCS): docs/requirements.txt
 # update this in Nix when upgrading it here
@@ -924,9 +924,10 @@ feature-new: hack/featuregen/featuregen
 	$< new --filename $(FEATURE_FILENAME)
 
 .PHONY: features-validate
-features-validate: hack/featuregen/featuregen
+features-validate: hack/featuregen/featuregen $(TOOL_MARKDOWNLINT)
 	# Validate all pending feature documentation files
 	$< validate
+	$< update --dry |  tail +4 | $(TOOL_MARKDOWNLINT) -s
 
 .PHONY: features-preview
 features-preview: hack/featuregen/featuregen
@@ -935,16 +936,18 @@ features-preview: hack/featuregen/featuregen
 	$< update --dry
 
 .PHONY: features-update
-features-update: hack/featuregen/featuregen
+features-update: hack/featuregen/featuregen $(TOOL_MARKDOWNLINT) 
 	# Update the features documentation, but keep the feature files in the pending directory
 	# Updates docs/new-features.md for release-candidates
 	$< update --version $(VERSION)
+	$(TOOL_MARKDOWNLINT) ./docs/new-features.md
 
 .PHONY: features-release
-features-release: hack/featuregen/featuregen
+features-release: hack/featuregen/featuregen $(TOOL_MARKDOWNLINT) 
 	# Update the features documentation AND move the feature files to the released directory
 	# Use this for the final update when releasing a version
 	$< update --version $(VERSION) --final
+	$(TOOL_MARKDOWNLINT) ./docs/new-features.md
 
 hack/featuregen/featuregen: hack/featuregen/main.go hack/featuregen/contents.go hack/featuregen/contents_test.go hack/featuregen/main_test.go
 	go test ./hack/featuregen
